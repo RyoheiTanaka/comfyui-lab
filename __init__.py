@@ -1,8 +1,14 @@
-from .nodes import PromptCombiner, BrightnessAdjust
+"""
+ComfyUI Lab - Custom Nodes Collection
+Learning project for ComfyUI custom node development
+"""
+
+from .nodes import prompt_combiner
+from .nodes import brightness_adjust
 
 NODE_CLASS_MAPPINGS = {
-    "PromptCombiner": PromptCombiner,
-    "BrightnessAdjust": BrightnessAdjust
+    "PromptCombiner": prompt_combiner.PromptCombiner,
+    "BrightnessAdjust": brightness_adjust.BrightnessAdjust
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
