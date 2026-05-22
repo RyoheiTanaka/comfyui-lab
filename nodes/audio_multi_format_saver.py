@@ -1,4 +1,5 @@
 import re
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -94,42 +95,49 @@ def _next_numbered_stem(output_dir: Path, prefix: str, extensions: list[str]) ->
         index += 1
 
 
-def _save_mp3(path: Path, audio_array: np.ndarray, sample_rate: int) -> None:
+def _to_pcm_int16(audio_array: np.ndarray) -> np.ndarray:
+    pcm = np.clip(audio_array, -1.0, 1.0)
+    return np.ascontiguousarray((pcm * 32767).astype(np.int16))
+
+
+def _save_wav(path: Path, audio_array: np.ndarray, sample_rate: int) -> None:
+    pcm_int16 = _to_pcm_int16(audio_array)
+    channels = pcm_int16.shape[1]
+
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_int16.tobytes())
+
+
+def _audio_segment_from_array(audio_array: np.ndarray, sample_rate: int):
     try:
         from pydub import AudioSegment
     except Exception as exc:
         raise RuntimeError(
-            "MP3 export requires pydub and ffmpeg. Please install ffmpeg or disable save_mp3."
+            "MP3/OGG export requires pydub and ffmpeg. Please install ffmpeg or disable save_mp3/save_ogg."
         ) from exc
 
-    pcm = np.clip(audio_array, -1.0, 1.0)
-    pcm_int16 = (pcm * 32767).astype(np.int16)
-    channels = 1 if pcm_int16.ndim == 1 else pcm_int16.shape[1]
-    segment = AudioSegment(
+    pcm_int16 = _to_pcm_int16(audio_array)
+    channels = pcm_int16.shape[1]
+    return AudioSegment(
         pcm_int16.tobytes(),
         frame_rate=sample_rate,
         sample_width=2,
         channels=channels,
     )
 
+
+def _save_with_pydub(path: Path, audio_array: np.ndarray, sample_rate: int, file_format: str) -> None:
+    segment = _audio_segment_from_array(audio_array, sample_rate)
+
     try:
-        segment.export(str(path), format="mp3")
+        segment.export(str(path), format=file_format.lower())
     except Exception as exc:
         raise RuntimeError(
-            "MP3 export requires ffmpeg or a backend that supports MP3. "
-            "Please install ffmpeg or disable save_mp3."
+            f"{file_format} export requires ffmpeg. Please install ffmpeg or disable save_{file_format.lower()}."
         ) from exc
-
-
-def _save_with_soundfile(path: Path, audio_array: np.ndarray, sample_rate: int, file_format: str) -> None:
-    try:
-        import soundfile as sf
-    except Exception as exc:
-        raise RuntimeError(
-            f"{file_format} export requires the soundfile package. Please install requirements.txt."
-        ) from exc
-
-    sf.write(str(path), audio_array, sample_rate, format=file_format)
 
 
 class AudioMultiFormatSaver:
@@ -187,11 +195,11 @@ class AudioMultiFormatSaver:
         for extension in enabled_formats:
             path = output_dir / f"{stem}.{extension}"
             if extension == "wav":
-                _save_with_soundfile(path, audio_array, effective_sample_rate, "WAV")
+                _save_wav(path, audio_array, effective_sample_rate)
             elif extension == "ogg":
-                _save_with_soundfile(path, audio_array, effective_sample_rate, "OGG")
+                _save_with_pydub(path, audio_array, effective_sample_rate, "OGG")
             elif extension == "mp3":
-                _save_mp3(path, audio_array, effective_sample_rate)
+                _save_with_pydub(path, audio_array, effective_sample_rate, "MP3")
             saved_files.append(str(path))
 
         return ("Saved files:\n" + "\n".join(saved_files),)
