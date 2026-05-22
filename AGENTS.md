@@ -17,6 +17,7 @@
 - ノード登録は `NODE_CLASS_MAPPINGS` と `NODE_DISPLAY_NAME_MAPPINGS` で行う。
 - 絶対パスをハードコードしない。
 - ファイル保存時は ComfyUI の出力ディレクトリを `folder_paths.get_output_directory()` で取得する。
+- `filename_prefix` にサブフォルダを含める場合も、保存先は必ず ComfyUI の output 配下に制限する。
 - 新しいノードを追加した場合は README を更新する。
 
 ## テストチェックリスト

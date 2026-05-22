@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 
 
-_INVALID_FILENAME_CHARS = re.compile(r'[/\\:*?"<>|]+')
+_INVALID_FILENAME_CHARS = re.compile(r'[:*?"<>|]+')
 
 
 def _to_numpy(value: Any) -> np.ndarray:
@@ -34,19 +34,13 @@ def _as_samples_channels(waveform: np.ndarray) -> np.ndarray:
             return array.T
         return array
 
-    if array.ndim == 3:
-        if array.shape[0] < 1:
-            raise ValueError(f"Unsupported waveform shape: {array.shape}. Batch dimension is empty.")
-        # Initial implementation saves the first batch item. This can be extended to save each batch separately.
-        return _as_samples_channels(array[0])
-
     raise ValueError(
         f"Unsupported waveform shape: {array.shape}. "
-        "Expected [samples], [channels, samples], or [batch, channels, samples]."
+        "Expected [samples] or [channels, samples]."
     )
 
 
-def prepare_audio_array(audio: Any, fallback_sample_rate: int, normalize: bool) -> tuple[np.ndarray, int]:
+def _extract_waveform_and_sample_rate(audio: Any, fallback_sample_rate: int) -> tuple[Any, int]:
     sample_rate = fallback_sample_rate
     waveform = audio
 
@@ -59,22 +53,59 @@ def prepare_audio_array(audio: Any, fallback_sample_rate: int, normalize: bool) 
         waveform = audio["waveform"]
         sample_rate = int(audio.get("sample_rate") or fallback_sample_rate)
 
-    audio_array = _as_samples_channels(_to_numpy(waveform)).astype(np.float32, copy=False)
+    return waveform, sample_rate
 
-    if audio_array.size == 0:
+
+def _normalize_and_clip(audio_array: np.ndarray, normalize: bool) -> np.ndarray:
+    prepared = audio_array.astype(np.float32, copy=False)
+
+    if prepared.size == 0:
         raise ValueError("Audio waveform is empty.")
 
     if normalize:
-        peak = float(np.max(np.abs(audio_array)))
+        peak = float(np.max(np.abs(prepared)))
         if peak > 0.0:
-            audio_array = audio_array / peak
+            prepared = prepared / peak
 
-    return np.clip(audio_array, -1.0, 1.0), sample_rate
+    return np.clip(prepared, -1.0, 1.0)
 
 
-def _safe_filename_prefix(filename_prefix: str) -> str:
-    name = _INVALID_FILENAME_CHARS.sub("_", filename_prefix).strip(" ._")
+def prepare_audio_arrays(audio: Any, fallback_sample_rate: int, normalize: bool) -> tuple[list[np.ndarray], int]:
+    waveform, sample_rate = _extract_waveform_and_sample_rate(audio, fallback_sample_rate)
+    raw_array = _to_numpy(waveform)
+
+    if raw_array.ndim == 3:
+        if raw_array.shape[0] < 1:
+            raise ValueError(f"Unsupported waveform shape: {raw_array.shape}. Batch dimension is empty.")
+        audio_arrays = [_as_samples_channels(raw_array[index]) for index in range(raw_array.shape[0])]
+    else:
+        audio_arrays = [_as_samples_channels(raw_array)]
+
+    return [_normalize_and_clip(audio_array, normalize) for audio_array in audio_arrays], sample_rate
+
+
+def prepare_audio_array(audio: Any, fallback_sample_rate: int, normalize: bool) -> tuple[np.ndarray, int]:
+    audio_arrays, sample_rate = prepare_audio_arrays(audio, fallback_sample_rate, normalize)
+    return audio_arrays[0], sample_rate
+
+
+def _safe_path_segment(segment: str) -> str:
+    name = _INVALID_FILENAME_CHARS.sub("_", segment).strip(" ._")
     return name or "audio_output"
+
+
+def _resolve_output_path(output_dir: Path, filename_prefix: str) -> tuple[Path, str]:
+    normalized = filename_prefix.replace("\\", "/")
+    raw_parts = [part for part in normalized.split("/") if part.strip()]
+    safe_parts = [_safe_path_segment(part) for part in raw_parts if part not in {".", ".."}]
+
+    if not safe_parts:
+        return output_dir, "audio_output"
+
+    subdir_parts = safe_parts[:-1]
+    prefix = safe_parts[-1]
+    target_dir = output_dir.joinpath(*subdir_parts) if subdir_parts else output_dir
+    return target_dir, prefix
 
 
 def _get_output_directory() -> Path:
@@ -184,22 +215,28 @@ class AudioMultiFormatSaver:
         if not enabled_formats:
             raise ValueError("At least one output format must be enabled: save_wav, save_mp3, or save_ogg.")
 
-        audio_array, effective_sample_rate = prepare_audio_array(audio, sample_rate, normalize)
         output_dir = _get_output_directory()
-        output_dir.mkdir(parents=True, exist_ok=True)
+        target_dir, safe_prefix = _resolve_output_path(output_dir, filename_prefix)
+        target_dir.mkdir(parents=True, exist_ok=True)
 
-        safe_prefix = _safe_filename_prefix(filename_prefix)
-        stem = safe_prefix if overwrite else _next_numbered_stem(output_dir, safe_prefix, enabled_formats)
+        audio_arrays, effective_sample_rate = prepare_audio_arrays(audio, sample_rate, normalize)
+        batch_count = len(audio_arrays)
 
         saved_files = []
-        for extension in enabled_formats:
-            path = output_dir / f"{stem}.{extension}"
-            if extension == "wav":
-                _save_wav(path, audio_array, effective_sample_rate)
-            elif extension == "ogg":
-                _save_with_pydub(path, audio_array, effective_sample_rate, "OGG")
-            elif extension == "mp3":
-                _save_with_pydub(path, audio_array, effective_sample_rate, "MP3")
-            saved_files.append(str(path))
+        for batch_index, audio_array in enumerate(audio_arrays, start=1):
+            if overwrite:
+                stem = safe_prefix if batch_count == 1 else f"{safe_prefix}_{batch_index:05d}"
+            else:
+                stem = _next_numbered_stem(target_dir, safe_prefix, enabled_formats)
+
+            for extension in enabled_formats:
+                path = target_dir / f"{stem}.{extension}"
+                if extension == "wav":
+                    _save_wav(path, audio_array, effective_sample_rate)
+                elif extension == "ogg":
+                    _save_with_pydub(path, audio_array, effective_sample_rate, "OGG")
+                elif extension == "mp3":
+                    _save_with_pydub(path, audio_array, effective_sample_rate, "MP3")
+                saved_files.append(str(path))
 
         return ("Saved files:\n" + "\n".join(saved_files),)

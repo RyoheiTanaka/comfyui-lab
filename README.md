@@ -22,7 +22,7 @@
 ### 入力
 
 - `audio`: ComfyUI の `AUDIO` 入力。
-- `filename_prefix`: 保存ファイル名の接頭辞。初期値は `audio_output`。
+- `filename_prefix`: 保存ファイル名の接頭辞。`audio/se/audio_output` のように書くと、output 配下にサブフォルダを作って保存します。初期値は `audio_output`。
 - `save_wav`: WAV 形式で保存する。
 - `save_mp3`: MP3 形式で保存する。
 - `save_ogg`: OGG 形式で保存する。
@@ -34,5 +34,5 @@
 
 - MP3 / OGG 保存には `pydub` と ffmpeg が必要です。
 - WAV 保存は Python 標準ライブラリで行うため、追加の音声保存ライブラリは不要です。
-- batch 音声入力の場合、現在は先頭の音声のみ保存します。
+- batch 音声入力の場合、各batchを別ファイルとして連番保存します。
 - 入力音声に `sample_rate` が含まれる場合は、ノード側の `sample_rate` より入力値を優先します。
