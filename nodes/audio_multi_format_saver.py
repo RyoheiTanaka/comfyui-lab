@@ -7,6 +7,19 @@ import numpy as np
 
 
 _INVALID_FILENAME_CHARS = re.compile(r'[:*?"<>|]+')
+_SAMPLE_RATE_OPTIONS = [
+    "8000",
+    "11025",
+    "16000",
+    "22050",
+    "24000",
+    "32000",
+    "44100",
+    "48000",
+    "88200",
+    "96000",
+    "192000",
+]
 
 
 def _to_numpy(value: Any) -> np.ndarray:
@@ -195,7 +208,7 @@ class AudioMultiFormatSaver:
                 "save_wav": ("BOOLEAN", {"default": True}),
                 "save_mp3": ("BOOLEAN", {"default": False}),
                 "save_ogg": ("BOOLEAN", {"default": False}),
-                "sample_rate": ("INT", {"default": 44100, "min": 8000, "max": 192000, "step": 1}),
+                "sample_rate": (_SAMPLE_RATE_OPTIONS, {"default": "44100"}),
                 "normalize": ("BOOLEAN", {"default": False}),
                 "overwrite": ("BOOLEAN", {"default": False}),
             }
@@ -214,10 +227,11 @@ class AudioMultiFormatSaver:
         save_wav=True,
         save_mp3=False,
         save_ogg=False,
-        sample_rate=44100,
+        sample_rate="44100",
         normalize=False,
         overwrite=False,
     ):
+        sample_rate = int(sample_rate)
         enabled_formats = []
         if save_wav:
             enabled_formats.append("wav")

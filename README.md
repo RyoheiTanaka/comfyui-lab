@@ -27,7 +27,7 @@
 - `save_wav`: WAV 形式で保存する。
 - `save_mp3`: MP3 形式で保存する。
 - `save_ogg`: OGG 形式で保存する。
-- `sample_rate`: 入力音声に sample rate が含まれない場合に使う値。
+- `sample_rate`: 入力音声に sample rate が含まれない場合に使う値。よく使う値から選択します。
 - `normalize`: 有効にすると、音割れを避けるために音声を正規化する。
 - `overwrite`: 有効にすると、連番を付けずに同名ファイルを上書きする。
 
