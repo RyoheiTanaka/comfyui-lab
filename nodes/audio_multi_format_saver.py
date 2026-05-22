@@ -203,14 +203,37 @@ class AudioMultiFormatSaver:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "audio": ("AUDIO",),
-                "filename_prefix": ("STRING", {"default": "audio_output"}),
-                "save_wav": ("BOOLEAN", {"default": True}),
-                "save_mp3": ("BOOLEAN", {"default": False}),
-                "save_ogg": ("BOOLEAN", {"default": False}),
-                "sample_rate": (_SAMPLE_RATE_OPTIONS, {"default": "44100"}),
-                "normalize": ("BOOLEAN", {"default": False}),
-                "overwrite": ("BOOLEAN", {"default": False}),
+                "audio": ("AUDIO", {
+                    "tooltip": "保存する音声データです。ComfyUIの音声生成ノードや音声処理ノードのAUDIO出力を接続します。",
+                }),
+                "filename_prefix": ("STRING", {
+                    "default": "audio_output",
+                    "tooltip": "保存ファイル名の接頭辞です。audio/se/output のように書くと、ComfyUIのoutput配下にサブフォルダを作って保存します。",
+                }),
+                "save_wav": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "WAV形式で保存します。劣化なしで確認しやすく、まず動作確認する場合におすすめです。",
+                }),
+                "save_mp3": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "MP3形式で保存します。ファイルサイズを小さくできますが、pydubとffmpegが必要です。",
+                }),
+                "save_ogg": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "OGG形式で保存します。MP3以外の圧縮音声として保存したい場合に使います。pydubとffmpegが必要です。",
+                }),
+                "sample_rate": (_SAMPLE_RATE_OPTIONS, {
+                    "default": "44100",
+                    "tooltip": "入力音声にsample_rateが含まれない場合に使う予備の値です。入力音声側にsample_rateがある場合はそちらを優先します。",
+                }),
+                "normalize": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "有効にすると、音声全体の最大音量を基準に -1.0 から 1.0 の範囲へ正規化します。無効の場合も保存前に安全のためクリップします。",
+                }),
+                "overwrite": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "有効にすると、連番を付けずに同名ファイルを上書き保存します。無効の場合は既存ファイルを避けて連番で保存します。",
+                }),
             }
         }
 
