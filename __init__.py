@@ -5,6 +5,7 @@ Learning project for ComfyUI custom node development
 
 from .nodes import prompt_combiner, brightness_adjust, contrast_adjust, gamma_adjust, saturation_adjust
 from .nodes import image_filter_preset, color_temperature_adjust
+from .nodes import audio_multi_format_saver
 
 
 NODE_CLASS_MAPPINGS = {
@@ -15,6 +16,7 @@ NODE_CLASS_MAPPINGS = {
     "SaturationAdjust": saturation_adjust.SaturationAdjust,
     "ImageFilterPreset": image_filter_preset.ImageFilterPreset,
     "ColorTemperatureAdjust": color_temperature_adjust.ColorTemperatureAdjust,
+    "AudioMultiFormatSaver": audio_multi_format_saver.AudioMultiFormatSaver,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -25,4 +27,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaturationAdjust": "Saturation Adjust",
     "ImageFilterPreset": "Image Filter Preset",
     "ColorTemperatureAdjust": "Color Temperature Adjust",
+    "AudioMultiFormatSaver": "Audio Multi Format Saver",
 }
