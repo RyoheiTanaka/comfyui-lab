@@ -126,6 +126,20 @@ def _next_numbered_stem(output_dir: Path, prefix: str, extensions: list[str]) ->
         index += 1
 
 
+def _ui_audio_result(path: Path, output_dir: Path) -> dict[str, str]:
+    try:
+        relative_path = path.relative_to(output_dir)
+    except ValueError:
+        relative_path = Path(path.name)
+
+    subfolder = "" if relative_path.parent == Path(".") else relative_path.parent.as_posix()
+    return {
+        "filename": relative_path.name,
+        "subfolder": subfolder,
+        "type": "output",
+    }
+
+
 def _to_pcm_int16(audio_array: np.ndarray) -> np.ndarray:
     pcm = np.clip(audio_array, -1.0, 1.0)
     return np.ascontiguousarray((pcm * 32767).astype(np.int16))
@@ -223,6 +237,7 @@ class AudioMultiFormatSaver:
         batch_count = len(audio_arrays)
 
         saved_files = []
+        ui_audio = []
         for batch_index, audio_array in enumerate(audio_arrays, start=1):
             if overwrite:
                 stem = safe_prefix if batch_count == 1 else f"{safe_prefix}_{batch_index:05d}"
@@ -238,5 +253,9 @@ class AudioMultiFormatSaver:
                 elif extension == "mp3":
                     _save_with_pydub(path, audio_array, effective_sample_rate, "MP3")
                 saved_files.append(str(path))
+                ui_audio.append(_ui_audio_result(path, output_dir))
 
-        return ("Saved files:\n" + "\n".join(saved_files),)
+        return {
+            "ui": {"audio": ui_audio},
+            "result": ("Saved files:\n" + "\n".join(saved_files),),
+        }
